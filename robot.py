@@ -1,5 +1,6 @@
 import cv2
 import math
+
 class Robot():
     def __init__(self):
         self.angles = 0
@@ -33,6 +34,7 @@ class Robot():
 
     def calc_angle(self,point1,point2):
         # 計算水平和垂直距離
+        
         dx = point2[0] - point1[0]
         dy = point2[1] - point1[1]
         
@@ -49,7 +51,11 @@ class Robot():
         return angle_deg
 
     def getLocation(self):
-        return self.center_point
+        if self.front_center_point is None or len(self.front_center_point)!=2:
+            return (None,None)
+        x = (self.front_center_point[0] + self.rear_center_point[0])/2
+        y = (self.front_center_point[1] + self.rear_center_point[1])/2
+        return (x,y)
     
     def getAngles(self):
         return self.angles

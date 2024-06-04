@@ -3,7 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-06-04 09:03:40
-LastEditTime: 2024-06-04 09:12:08
+LastEditTime: 2024-06-04 11:57:15
 Description: 
 '''
 
@@ -12,6 +12,7 @@ from PyQt5.QtGui import QImage, QPixmap
 import time
 import numpy as np
 import cv2
+# import debugpy
 
 
 color_default = {'red': {'Lower': np.array([0, 60, 60]), 'Upper': np.array([6, 255, 255])},
@@ -20,16 +21,14 @@ color_default = {'red': {'Lower': np.array([0, 60, 60]), 'Upper': np.array([6, 2
               'custom':None}
 
 
-class ObjectDetector():
-    frame_updated = pyqtSignal(QImage)
-    fps_updated = pyqtSignal(float)
-    cv_obj_dict_updated = pyqtSignal(dict)
-    list_updated = pyqtSignal(list)
+class ObjectDetector(QObject):
+    frame_updated = pyqtSignal(np.ndarray)
+    on_finish = pyqtSignal(dict)
 
-    def __init__(self, cap):
+    def __init__(self,cv_obj_dict):
         super().__init__()
-        self.cap = cap
-        self.cv_obj_dict = {}
+        self.cap = None
+        self.cv_obj_dict = cv_obj_dict
         self.shared_list = []
         self.mutex = QMutex()
         self.prev_time = time.time()
@@ -37,15 +36,22 @@ class ObjectDetector():
 
         self.cap = cv2.VideoCapture(2)
         self.cv_object_mutex = QMutex()
-        self.video_processor = VideoProcessor(self.cap,self.cv_obj_dict,self.cv_object_mutex)
-        self.video_processor.frame_updated.connect(self.update_image)
-        self.video_processor.on_finish.connect(self.on_finish)
+        self.processor = VideoProcessor(self.cap,cv_obj_dict,self.cv_object_mutex)
+        self.processor.frame_updated.connect(self.frame_updated)
+        self.processor.on_finish.connect(self.on_finish)
+
 
     def start(self):
-        self.processor.start()
+        self.cap = cv2.VideoCapture(2)
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
 
+        self.processor.start()
+        
     def stop(self):
         self.processor.stop()
+
+
 
 class VideoProcessor(QThread):
     frame_updated = pyqtSignal(np.ndarray)
@@ -59,10 +65,14 @@ class VideoProcessor(QThread):
         self.iterList = []
         self.valueList = []
 
+        # self.cv_object_mutex = QMutex()
         self.cv_object_dict = cv_object_dict
         self.cv_object_mutex = cv_object_mutex
 
+        self.current_image = None
+
     def run(self):
+        # debugpy.debug_this_thread()
         print("Thread Start")
         while True:
             ret, frame = self.cap.read()
@@ -114,6 +124,7 @@ class VideoProcessor(QThread):
             cv2.waitKey(1)
 
             self.frame_updated.emit(frame)
+            self.current_image = frame
 
             info = {}
             info["fps"]=fps
@@ -182,4 +193,3 @@ class VideoProcessor(QThread):
                 text_width, text_height = cv2.getTextSize(text, fontFace, fontScale, thickness)[0]
                 CenterCoordinates = (int(rect[0][0]) - int(text_width / 2), int(rect[0][1]) + int(text_height / 2) + cv_object["TextOffsetH"])
                 cv2.putText(frame, text , CenterCoordinates, fontFace, fontScale, fontColor, 1, cv2.LINE_AA)
-    

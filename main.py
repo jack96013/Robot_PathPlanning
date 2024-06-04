@@ -3,35 +3,32 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-05-30 22:20:00
-LastEditTime: 2024-06-04 09:10:58
+LastEditTime: 2024-06-04 15:26:03
 Description: 
 '''
 
-from PyQt5 import QtWidgets, QtCore, QtGui
-from PyQt5.QtCore import QThread, pyqtSignal, pyqtSlot, QMutex
-from PyQt5.QtGui import QImage
-
-from ui import main_ui
-import numpy as np
-
 import cv2
-
-import matplotlib.pyplot as plt
 import matplotlib
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg, NavigationToolbar2QT as NavigationToolbar
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from matplotlib.backends.backend_qt5agg import \
+    NavigationToolbar2QT as NavigationToolbar
+from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QMutex, QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QImage
+from ui import main_ui
 
 matplotlib.use("Qt5Agg")  # 使用 Qt5
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from matplotlib.figure import Figure
-
-import mplcursors
-
 import math
 import time
 
-from robot import Robot
+import mplcursors
 from map import Map
-from ObjectDetector import ObjectDetector
+from matplotlib.backends.backend_qt5agg import \
+    FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
+from ObjectDetector import ObjectDetector, color_default
 
 
 color_filter_struct = {'Lower': np.array([0, 0, 0]), 'Upper': np.array([0, 0, 0])}
@@ -108,14 +105,14 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.setWindowTitle("ARAA Final Project ")
         self.setGeometry(100, 100, 800, 600)
         
-        self.start_button.clicked.connect(self.start_webcam)
+        self.start_button.clicked.connect(self.on_button_start_click)
         
         # self.timer = QtCore.QTimer()
         # self.timer.timeout.connect(self.update_frame)
 
         self.plt1_timer = QtCore.QTimer()
         self.plt1_timer.timeout.connect(self.plt1_timer_update)
-        # self.plt1_timer.start(1000)
+        self.plt1_timer.start(200)
 
         self.cap = None
 
@@ -137,10 +134,6 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.obj_detection_checkbox_init()
 
 
-        self.robot = Robot()
-        self.object_detector = ObjectDetector()
-        self.map = Map()
-
         self.comboBox_obj_select.setCurrentIndex(1)
         self.comboBox_obj_select.setCurrentIndex(0)
 
@@ -149,6 +142,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.sc = None
 
         self.drawMap()
+        self.map = Map(cv_obj_dict,self.sc)
 
         self.iterList = []
         self.valueList = []
@@ -156,11 +150,20 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
 
         # Video Processing
-        self.cap = cv2.VideoCapture(2)
+        # self.cap = cv2.VideoCapture(2)
         self.cv_object_mutex = QMutex()
-        self.video_processor = VideoProcessor(self.cap,cv_obj_dict,self.cv_object_mutex)
-        self.video_processor.frame_updated.connect(self.update_image)
-        self.video_processor.on_finish.connect(self.on_finish)
+
+        self.object_detector = ObjectDetector(cv_obj_dict)
+        self.object_detector.frame_updated.connect(self.update_image)
+        self.object_detector.on_finish.connect(self.on_finish)
+
+        self.current_image = None
+        
+        # self.video_processor = VideoProcessor(self.cap,cv_obj_dict,self.cv_object_mutex)
+        # self.video_processor.frame_updated.connect(self.update_image)
+        # self.video_processor.on_finish.connect(self.on_finish)
+
+        
 
     
     def obj_detection_checkbox_init(self):
@@ -313,16 +316,13 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         if slider_box is not None:
             slider_box.setValue(self.sender().value())
 
-    def start_webcam(self):
-        self.cap = cv2.VideoCapture(2)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
-        
-        self.video_processor.start()
-        # self.timer.start(20)
+    def on_button_start_click(self):
+        self.object_detector.start()
 
     @pyqtSlot(np.ndarray)
     def update_image(self, frame):
+        self.current_image = frame
+
         image = QtGui.QImage(frame, frame.shape[1], frame.shape[0], 
                             frame.strides[0], QtGui.QImage.Format_RGB888)
         pixmap = QtGui.QPixmap.fromImage(image)
@@ -336,132 +336,30 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
     @pyqtSlot(dict)
     def on_finish(self,info):
         self.cv_object_mutex.lock()
+        
+
+        self.label_info_obstacles_6.setText(f'{self.map.robot.getAngles():.1f}')
+        
+        
+        
         self.label_info_obstacles.setText(f'{len(cv_obj_dict["obstacles"]["Objects"])}')
         self.label_info_robot_angles.setText(f'{len(cv_obj_dict["robot"]["Objects"])}')
         self.label_info_obstacles_4.setText(f'{len(cv_obj_dict["start"]["Objects"])}')
         self.label_info_obstacles_5.setText(f'{len(cv_obj_dict["end"]["Objects"])}')
+        
+        
         self.cv_object_mutex.unlock()
         self.label_info_fps.setText(f'{info["fps"]:.2f}')
+        
+        self.map.update()
+        self.map.plot_map()
+        
         pass
 
-    # def update_frame(self):
-    #     pass
-        # ret, frame = self.cap.read()
-        # if not ret:
-        #     return
-        
-        # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        # gs_frame = cv2.GaussianBlur(frame, (5, 5), 0)                    # 高斯模糊
-        # hsv = cv2.cvtColor(gs_frame, cv2.COLOR_BGR2HSV)                  # 转化成HSV图像
-        # erode_hsv = cv2.erode(hsv, None, iterations=2)                   # 腐蚀 粗的变细
-
-        
-        # # Find all contours object
-        # for key,cv_obj in cv_obj_dict.items():
-        #     self.detect_objects(frame, erode_hsv, cv_obj)
-
-
-        # # Update Infomation
-        # self.label_info_obstacles.setText(f'{len(cv_obj_dict["obstacles"]["Objects"])}')
-        # self.label_info_robot_angles.setText(f'{len(cv_obj_dict["robot"]["Objects"])}')
-        # self.label_info_obstacles_4.setText(f'{len(cv_obj_dict["start"]["Objects"])}')
-        # self.label_info_obstacles_5.setText(f'{len(cv_obj_dict["end"]["Objects"])}')
-
-        # loc = self.robot.setLocation(cv_obj_dict["robot"]["Objects"])
-        # if (loc != None):
-            
-        #     cv2.arrowedLine(frame, (int(loc["rear"][0]),int(loc["rear"][1])),  (int(loc["front"][0]),int(loc["front"][1])), (0, 0, 255), 2) 
-        #     self.label_info_obstacles_6.setText(f'{self.robot.getAngles():.1f}')
-        
-        # # Calculate FPS
-        # current_time = time.time()
-        # fps = 1 / (current_time - self.prev_time)
-        # self.prev_time = current_time
-
-        # # Display FPS on frame
-        # cv2.putText(frame, f'FPS: {fps:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-        # self.label_info_fps.setText(f'{fps:.2f}')
-
-        # imgage_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-       
-        # self.iter = self.iter + 1
-        # self.iterList.append(int(self.iter))
-        # self.valueList.append(int(fps))   
-        
-
-        # cv2.imshow('camera', imgage_rgb)
-        # cv2.waitKey(1)
-
-        # image = QtGui.QImage(frame, frame.shape[1], frame.shape[0], 
-        #                         frame.strides[0], QtGui.QImage.Format_RGB888)
-
-        # self.updateImage(image)
-
-        # print(f"FPS={fps}")
-
-
-
-
-    # def detect_objects(self, frame, image, cv_object):
-    #     if cv_object["Enable"] == False :
-    #         return
-
-    #     color_profile = cv_object["Color"]["Preset"]
-    #     presetName = "red"
-    #     if color_profile != "custom":
-    #         presetName = color_profile
-        
-
-    #     lower_color = color_default[presetName]['Lower']
-    #     upper_color = color_default[presetName]['Upper']
-
-    #     inRange_hsv = cv2.inRange(image, lower_color, upper_color)
-    #     cnts = cv2.findContours(inRange_hsv.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2]
-        
-    #     large_cnts = [c for c in cnts if cv2.contourArea(c) > cv_object["AreaMin"]]
-
-    #     # print(len(cnts))
-        
-    #     cv_object["Objects"].clear()
-    #     # self.obstacles_list.clear()
-
-        
-    #     for c in large_cnts:
-    #         cv_object["Objects"].append(c)
-
-    #         #c = max(cnts, key=cv2.contourArea)
-    #         rect = cv2.minAreaRect(c)
-    #         box = cv2.boxPoints(rect)
-
-    #         if (cv_object["ShowBoxEnable"]):
-    #             cv2.drawContours(frame, [np.intp(box)], -1, (0, 0, 255), 2)
-
-    #         # 顯示四個頂點的座標
-    #         if (cv_object["ShowBoxPointEnable"]):
-    #             for i, (x, y) in enumerate(box):
-    #                 round_x = np.round(x,1)
-    #                 round_y = np.round(y,1)
-                    
-    #                 cv2.putText(frame, f'({round_x:.1f}, {round_y:.1f})', (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
-                    
-    #         if (cv_object["ShowNameEnable"]):  
-    #             angle = rect[2]
-    #             #text = f'{cv_object["Name"]}-{angle:.1f}'
-    #             text = f'{cv_object["Name"]}'
-                
-    #             # 置中顯示
-    #             fontFace = cv2.FONT_HERSHEY_SIMPLEX
-    #             fontScale = 0.5
-    #             fontColor = (0, 0, 255)
-    #             thickness = 2
-                
-    #             text_width, text_height = cv2.getTextSize(text, fontFace, fontScale, thickness)[0]
-    #             CenterCoordinates = (int(rect[0][0]) - int(text_width / 2), int(rect[0][1]) + int(text_height / 2) + cv_object["TextOffsetH"])
-    #             cv2.putText(frame, text , CenterCoordinates, fontFace, fontScale, fontColor, 1, cv2.LINE_AA)
-    
+ 
     def updateImage(self,image):
+        
+
         self.label.setPixmap(QtGui.QPixmap.fromImage(image))
         pixmap = QtGui.QPixmap.fromImage(image)
         self.label.setPixmap(pixmap.scaled(
@@ -506,8 +404,13 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
     def drawMap(self):
         self.sc = MplCanvas(self, width=5, height=4, dpi=100)
-        aa = self.sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
         
+        self.sc.axes.set_xlim([0,1920])
+        self.sc.axes.set_ylim([0,1080])
+        self.sc.axes.invert_yaxis()
+        
+        aa = self.sc.axes.plot([0,1,2,3,4], [10,1,20,3,40])
+
         c1 = mplcursors.cursor(aa, hover=True)
 
         @c1.connect("add")
@@ -533,37 +436,37 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
     
         pass
 
-    def _plot_obstacles(self,obstacles):
-    
-        for obstacle in obstacles:
-            x_values, y_values = [], []
-
-            for vertex in obstacle:
-                x_values.append(vertex[0][0])
-                y_values.append(vertex[0][1])
-            
-            self.sc.axes.fill(x_values, y_values, 'r')
             
     def plt1_timer_update(self):
         
-        obstacles = cv_obj_dict["obstacles"]["Objects"]
-        obstacles_loc_list = []
-        for obstacle in obstacles:
-            rect = cv2.minAreaRect(obstacle)
-            box = cv2.boxPoints(rect)
+        # self.object_detector.cv_object_mutex.lock()
+
+        # obstacles = cv_obj_dict["obstacles"]["Objects"]
+
+        # self.object_detector.cv_object_mutex.unlock()
+
+        
+
+        # obstacles_loc_list = []
+        # for obstacle in obstacles:
+        #     rect = cv2.minAreaRect(obstacle)
+        #     box = cv2.boxPoints(rect)
             
-            obstacles_loc_list.append(np.intp(box))
+        #     obstacles_loc_list.append(np.intp(box))
 
         
-        self.sc.axes.cla()
-        self._plot_obstacles(obstacles)
+        # self.sc.axes.cla()
+        # self.sc.axes.invert_yaxis()
+        # self.sc.axes.xaxis.set_ticks_position('top')
+        # # if self.object_detector.processor.current_image is not None:
+        #     # self.sc.axes.imshow(self.current_image)
+        # self._plot_obstacles(obstacles)
         
         
-        #self.sc.axes.plot(self.iterList, self.valueList)
-        self.sc.draw()
+        # #self.sc.axes.plot(self.iterList, self.valueList)
+        # self.sc.draw()
         
-        print("update")
-
+        pass
 
 
 if __name__ == '__main__':
