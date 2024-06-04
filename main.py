@@ -3,7 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-05-30 22:20:00
-LastEditTime: 2024-06-04 15:26:03
+LastEditTime: 2024-06-04 22:12:49
 Description: 
 '''
 
@@ -106,13 +106,20 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.setGeometry(100, 100, 800, 600)
         
         self.start_button.clicked.connect(self.on_button_start_click)
-        
-        # self.timer = QtCore.QTimer()
-        # self.timer.timeout.connect(self.update_frame)
+        self.pushButton_simulate.clicked.connect(self.on_button_simulate_click)
+        self.pushButton_generate.clicked.connect(self.on_button_generate_click)
+        self.checkBox_update_map_enable.clicked.connect(self.on_checkBox_update_map_clock)
+        self.checkBox_update_map_enable.setChecked(self.keep_update_map_enable)
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.ga_runner)
+        self.timer.setSingleShot(True)
 
         self.plt1_timer = QtCore.QTimer()
         self.plt1_timer.timeout.connect(self.plt1_timer_update)
         self.plt1_timer.start(200)
+
+        self.keep_update_map_enable = True
 
         self.cap = None
 
@@ -163,8 +170,16 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         # self.video_processor.frame_updated.connect(self.update_image)
         # self.video_processor.on_finish.connect(self.on_finish)
 
+    def on_checkBox_update_map_clock(self):
+        self.keep_update_map_enable = self.sender().isChecked()
         
+    def on_button_simulate_click(self):
+        self.timer.start()
+        pass
 
+    def on_button_generate_click(self):
+        self.map.plot_map()
+    
     
     def obj_detection_checkbox_init(self):
         self.checkBox_obj_enable.clicked.connect(self.on_obj_detection_checkbox_click)
@@ -340,8 +355,6 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
         self.label_info_obstacles_6.setText(f'{self.map.robot.getAngles():.1f}')
         
-        
-        
         self.label_info_obstacles.setText(f'{len(cv_obj_dict["obstacles"]["Objects"])}')
         self.label_info_robot_angles.setText(f'{len(cv_obj_dict["robot"]["Objects"])}')
         self.label_info_obstacles_4.setText(f'{len(cv_obj_dict["start"]["Objects"])}')
@@ -351,8 +364,9 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.cv_object_mutex.unlock()
         self.label_info_fps.setText(f'{info["fps"]:.2f}')
         
-        self.map.update()
-        self.map.plot_map()
+        if self.keep_update_map_enable:
+            self.map.update()
+            self.map.plot_map()
         
         pass
 
@@ -435,7 +449,10 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.show()
     
         pass
-
+    
+    def ga_runner(self):
+        self.map.start_planning()
+        pass
             
     def plt1_timer_update(self):
         

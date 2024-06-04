@@ -32,7 +32,7 @@
        <item>
         <widget class="QTabWidget" name="tabWidget">
          <property name="currentIndex">
-          <number>2</number>
+          <number>0</number>
          </property>
          <widget class="QWidget" name="Basic">
           <attribute name="title">
@@ -81,16 +81,23 @@
                 </layout>
                </item>
                <item>
-                <widget class="QPushButton" name="pushButton_5">
+                <widget class="QCheckBox" name="checkBox_update_map_enable">
                  <property name="text">
-                  <string>Simualte</string>
+                  <string>Update map continuously</string>
                  </property>
                 </widget>
                </item>
                <item>
-                <widget class="QPushButton" name="pushButton_4">
+                <widget class="QPushButton" name="pushButton_generate">
                  <property name="text">
                   <string>Generate</string>
+                 </property>
+                </widget>
+               </item>
+               <item>
+                <widget class="QPushButton" name="pushButton_simulate">
+                 <property name="text">
+                  <string>Simualte</string>
                  </property>
                 </widget>
                </item>

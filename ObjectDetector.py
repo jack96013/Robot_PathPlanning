@@ -3,7 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-06-04 09:03:40
-LastEditTime: 2024-06-04 11:57:15
+LastEditTime: 2024-06-04 19:27:26
 Description: 
 '''
 
@@ -162,11 +162,11 @@ class VideoProcessor(QThread):
 
         
         for c in large_cnts:
-            cv_object["Objects"].append(c)
-
             #c = max(cnts, key=cv2.contourArea)
             rect = cv2.minAreaRect(c)
             box = cv2.boxPoints(rect)
+
+            cv_object["Objects"].append(box)
 
             if (cv_object["ShowBoxEnable"]):
                 cv2.drawContours(frame, [np.intp(box)], -1, (0, 0, 255), 2)
