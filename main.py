@@ -3,7 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-05-30 22:20:00
-LastEditTime: 2024-06-04 22:12:49
+LastEditTime: 2024-06-12 23:21:27
 Description: 
 '''
 
@@ -15,8 +15,11 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import \
     NavigationToolbar2QT as NavigationToolbar
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QMutex, QThread, pyqtSignal, pyqtSlot
-from PyQt5.QtGui import QImage
+from PyQt5.QtCore import QMutex, QThread, pyqtSignal, pyqtSlot, Qt
+from PyQt5.QtGui import QPainter, QLinearGradient, QBrush, QColor
+from PyQt5.QtWidgets import QLabel
+
+
 from ui import main_ui
 
 matplotlib.use("Qt5Agg")  # 使用 Qt5
@@ -30,6 +33,9 @@ from matplotlib.backends.backend_qt5agg import \
 from matplotlib.figure import Figure
 from ObjectDetector import ObjectDetector, color_default
 
+# from TCPClientHandler import TCPClientHandler
+from AmigoBot import AmigoBot
+
 
 color_filter_struct = {'Lower': np.array([0, 0, 0]), 'Upper': np.array([0, 0, 0])}
 
@@ -42,7 +48,7 @@ cv_obj_dict = {
     "obstacles":{
         "Name":"Obstacles",
         "Color": color_profile.copy(),
-        "AreaMin":500,
+        "AreaMin":1000,
         "TextOffsetH": 10,
         "Objects": [],
         "Enable": True,
@@ -67,7 +73,7 @@ cv_obj_dict = {
         "AreaMin":500,
         "TextOffsetH": 0,
         "Objects": [],
-        "Enable": True,
+        "Enable": False,
         "ShowBoxPointEnable":False,
         "ShowBoxEnable":True,
         "ShowNameEnable":True
@@ -87,6 +93,26 @@ cv_obj_dict = {
 
 plt.ion()
 
+class GradientLabel(QLabel):
+    def __init__(self, low_color, high_color, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.low_color = QColor(low_color)
+        self.high_color = QColor(high_color)
+        
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        rect = self.rect()
+        gradient = QLinearGradient(0, 0, rect.width(), 0)
+        gradient.setColorAt(0, self.low_color)
+        gradient.setColorAt(1, self.high_color)
+        brush = QBrush(gradient)
+        painter.fillRect(rect, brush)
+        painter.drawText(rect, Qt.AlignCenter, self.text())
+    
+    def setGradientColors(self, low_color, high_color):
+        self.low_color = QColor(low_color[0],low_color[1],low_color[2])
+        self.high_color = QColor(high_color[0],high_color[1],high_color[2])
+        self.update()  # 请求重绘
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -104,6 +130,8 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
         self.setWindowTitle("ARAA Final Project ")
         self.setGeometry(100, 100, 800, 600)
+
+        self.keep_update_map_enable = True
         
         self.start_button.clicked.connect(self.on_button_start_click)
         self.pushButton_simulate.clicked.connect(self.on_button_simulate_click)
@@ -119,7 +147,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.plt1_timer.timeout.connect(self.plt1_timer_update)
         self.plt1_timer.start(200)
 
-        self.keep_update_map_enable = True
+        self.tabWidget.setCurrentIndex(0)
 
         self.cap = None
 
@@ -127,9 +155,9 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
 
         cv_obj_dict["start"]["Color"]["Preset"] = "custom"
-        cv_obj_dict["end"]["Color"]["Preset"] = "red"
+        cv_obj_dict["end"]["Color"]["Preset"] = "blue"
         cv_obj_dict["obstacles"]["Color"]["Preset"] = "green"
-        cv_obj_dict["robot"]["Color"]["Preset"] = "blue"
+        cv_obj_dict["robot"]["Color"]["Preset"] = "red"
 
 
         self.drawPlot()
@@ -165,10 +193,37 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.object_detector.on_finish.connect(self.on_finish)
 
         self.current_image = None
+
+        self.tab_robot_init()
         
-        # self.video_processor = VideoProcessor(self.cap,cv_obj_dict,self.cv_object_mutex)
-        # self.video_processor.frame_updated.connect(self.update_image)
-        # self.video_processor.on_finish.connect(self.on_finish)
+        self.amigoBot = AmigoBot()
+
+        
+    def tab_robot_init(self):
+        self.pushButton_robot_connect.clicked.connect(self.on_button_robot_connect_click)
+        self.pushButton_robot_forward.clicked.connect(self.on_button_robot_forward_click)
+        self.pushButton_robot_backward.clicked.connect(self.on_button_robot_backward_click)
+        self.pushButton_robot_left.clicked.connect(self.on_button_robot_left_click)
+        self.pushButton_robot_right.clicked.connect(self.on_button_robot_right_click)
+        self.pushButton_robot_stop.clicked.connect(self.on_button_robot_stop_click)
+    
+    def on_button_robot_connect_click(self):
+        self.amigoBot.connectToRelay()
+    
+    def on_button_robot_forward_click(self):
+        self.amigoBot.move_forward()
+    
+    def on_button_robot_backward_click(self):
+        self.amigoBot.move_backward()
+        
+    def on_button_robot_left_click(self):
+        self.amigoBot.turn_left()
+        
+    def on_button_robot_right_click(self):
+        self.amigoBot.turn_right()
+        
+    def on_button_robot_stop_click(self):
+        self.amigoBot.stop()    
 
     def on_checkBox_update_map_clock(self):
         self.keep_update_map_enable = self.sender().isChecked()
@@ -178,7 +233,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         pass
 
     def on_button_generate_click(self):
-        self.map.plot_map()
+        self.map.update()
     
     
     def obj_detection_checkbox_init(self):
@@ -204,7 +259,10 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
     def color_adjust_init(self):
         self.comboBox_color_choose.addItems(list(color_default.keys()))
         self.comboBox_color_choose.currentIndexChanged.connect(self.on_color_adjust)
+        self.label_color_previewNew = GradientLabel("#FF0000", "#0000FF")
         
+        self.horizontalLayout_color_preview.addWidget(self.label_color_previewNew)
+
 
     def on_color_adjust(self):
         #color_profile_name = str(self.sender().currentText())
@@ -316,13 +374,21 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
             color_idx = 1
         elif (name[0] == "b"):
             color_idx = 2
-
-
+        
+        color = None
         if (presetName == "custom"):
             cv_object["Color"]["Custom"][color_type][color_idx] = value
-        
+            color = cv_object["Color"]["Custom"]
         else:
             color_default[presetName][color_type][color_idx] = value
+            color = color_default[presetName]
+            
+        rgb_lower = cv2.cvtColor(np.uint8([[color["Lower"]]]), cv2.COLOR_HSV2RGB)
+        rgb_lower = rgb_lower[0][0]
+        rgb_upper = cv2.cvtColor(np.uint8([[color["Upper"]]]), cv2.COLOR_HSV2RGB)
+        rgb_upper = rgb_upper[0][0]
+        # self.label_color_preview.setStyleSheet(f"background-color: rgb({rgb[0]},{rgb[1]},{rgb[2]})")
+        self.label_color_previewNew.setGradientColors(rgb_lower, rgb_upper)
 
 
     def color_spin_box_changed(self):
@@ -365,7 +431,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.label_info_fps.setText(f'{info["fps"]:.2f}')
         
         if self.keep_update_map_enable:
-            self.map.update()
+            # self.map.update()
             self.map.plot_map()
         
         pass
@@ -451,7 +517,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         pass
     
     def ga_runner(self):
-        self.map.start_planning()
+        self.map.start_planning_thread()
         pass
             
     def plt1_timer_update(self):

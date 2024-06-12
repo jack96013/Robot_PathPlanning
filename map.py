@@ -13,6 +13,13 @@ import genetic_algorithm as ga
 
 from PyQt5 import QtTest
 
+from PyQt5.QtCore import QThread
+
+import time
+
+import cProfile
+
+
 class Map():
     def __init__(self,cv_obj_dict,fig):
         plt.ion()
@@ -29,19 +36,24 @@ class Map():
         
         
         # self.fig, self.ax1 = plt.subplots()
-        self.plot_path(self.path_point_list,self.new_population)
 
-        pass
+        self.thread = GeneticRunner(self)
+
+        self.path_x = list()
+        self.path_y = list()
+        self.path_fast_x = list()
+        self.path_fast_y = list()
+        self.test = 0
+
     
+
     def update(self):
-        
-        
         if (len(self.cv_obj_dict["robot"]["Objects"])!= 0):
             loc = self.robot.setLocation(self.cv_obj_dict["robot"]["Objects"])
         
         self.end_point.setLocation(self.cv_obj_dict["end"]["Objects"])
 
-
+        self.obstacle_list.clear()
         for obstacle in self.cv_obj_dict["obstacles"]["Objects"]:
             rect = cv2.minAreaRect(obstacle)
             box = cv2.boxPoints(rect)
@@ -72,6 +84,7 @@ class Map():
 
     
     def plot_map(self):
+        
         # PLOT
         self.sc.axes.cla()
         self.sc.axes.invert_yaxis()
@@ -100,22 +113,22 @@ class Map():
 
     def _plot_robot(self):
         center_point = self.robot.getLocation()
+        if center_point is None:
+            robot_point = plt.Circle(center_point,50,color='r')
+            # robot_point2 = plt.Circle(front,10,color='r')
+            
+            length = 30
 
-        robot_point = plt.Circle(center_point,50,color='r')
-        # robot_point2 = plt.Circle(front,10,color='r')
-        
-        length = 30
+            dx = length*math.cos(math.radians(self.robot.getAngles()))
+            dy = length*math.sin(math.radians(self.robot.getAngles()))
 
-        dx = length*math.cos(math.radians(self.robot.getAngles()))
-        dy = length*math.sin(math.radians(self.robot.getAngles()))
-
-        # robot_arrow = plt.arrow(rear[0],rear[1],dx,dy)
-        self.sc.axes.add_patch(robot_point)
-        # self.sc.axes.add_patch(robot_point2)
-        self.sc.axes.arrow(center_point[0],center_point[1],dx,dy,head_width=30)
-        # if (loc != None):
-        #     pass
-        # cv2.arrowedLine(frame, (int(loc["rear"][0]),int(loc["rear"][1])),  (int(loc["front"][0]),int(loc["front"][1])), (0, 0, 255), 2) 
+            # robot_arrow = plt.arrow(rear[0],rear[1],dx,dy)
+            self.sc.axes.add_patch(robot_point)
+            # self.sc.axes.add_patch(robot_point2)
+            self.sc.axes.arrow(center_point[0],center_point[1],dx,dy,head_width=30)
+            # if (loc != None):
+            #     pass
+            # cv2.arrowedLine(frame, (int(loc["rear"][0]),int(loc["rear"][1])),  (int(loc["front"][0]),int(loc["front"][1])), (0, 0, 255), 2) 
 
         
         
@@ -138,9 +151,10 @@ class Map():
         path_point_x = [path_point[0] for path_point in path_points]
         path_point_y = [path_point[1] for path_point in path_points]
 
-        self.sc.axes.plot(path_point_x[1:-1], path_point_y[1:-1], "k.")
-        self.sc.axes.plot(path_point_x[0], path_point_y[0], "bo", label='Source')
-        self.sc.axes.plot(path_point_x[-1], path_point_y[-1], "go", label='Goal')
+        if len(path_point_x) != 0:
+            self.sc.axes.plot(path_point_x[1:-1], path_point_y[1:-1], "k.")
+            self.sc.axes.plot(path_point_x[0], path_point_y[0], "bo", label='Source')
+            self.sc.axes.plot(path_point_x[-1], path_point_y[-1], "go", label='Goal')
 
         # self.sc.axes.legend(loc="upper left")
 
@@ -170,16 +184,19 @@ class Map():
         # plot(self.obstacle_list, self.path_points, population, path_lengths, 1, False)
 
         # 進行疊代，疊代指定次數
-        generations = int(2)
+        generations = int(10)
+
+        path_length_fast = 999999
+        path_fast = None
         
         for gen in range(generations - 1):
-            new_population = []
+            self.new_population = []
             path_lengths.clear()
 
             fitness_list = ga._sort_by_fitness(population, self.path_point_list)
-
-            for chromosome in population:
-                self.new_population.clear()
+            
+            for i, chromosome in enumerate(population):
+                # self.new_population.clear()    
                 while True:
                     parent1 = ga._choose_random_parent(fitness_list)
                     parent2 = ga._choose_random_parent(fitness_list)
@@ -191,26 +208,76 @@ class Map():
 
                     if ga._chromosome_valid(child, self.obstacle_list, self.path_point_list):
                         break
-                
-                path_lengths.append(ga._calculate_path_length(child, self.path_point_list))
+                    
+                    QtTest.QTest.qWait(1)
+
+                path_length = ga._calculate_path_length(child, self.path_point_list)
+                # path_lengths.append(path_length)
                 self.new_population.append(child)
-                QtTest.QTest.qWait(100)
+                print(f'{i} new population {path_length}')
+                # print(f'PathPoints {len(self.path_point_list)}')
+                # print(f'PathPoints {len(self.obstacle_list)}')
+
+                if True:
+                    self.path_x = [self.path_point_list[j][0] for j, c in enumerate(child) if c == '1']
+                    self.path_y = [self.path_point_list[j][1] for j, c in enumerate(child) if c == '1']
+                    pass
+
+                if path_length < path_length_fast:
+                    path_length_fast = path_length
+                    path_fast = child
+                    self.path_fast_x = [self.path_point_list[j][0] for j, c in enumerate(path_fast) if c == '1']
+                    self.path_fast_y = [self.path_point_list[j][1] for j, c in enumerate(path_fast) if c == '1']
+                    pass
+
+               
+                # time.sleep(0.01)
                 # print(path_lengths)
                 
             population = self.new_population 
             
-            print(f'gen={gen}, path_lengths={path_lengths[-1]}')
+            print(f'gen={gen}, path_lengths={0}')
+
+
+            
             # self.plot_path(self.path_point_list, new_population, path_lengths, (gen+2), last_gen=True if gen == generations-2 else False )
             # self.plot_path(self.path_point_list,self.new_population)
         pass
         print("finish")
 
+
     def plot_path(self , path_points, population):
         
-        for i, chromosome in enumerate(population):
-            path_x = [path_points[j][0] for j, c in enumerate(chromosome) if c == '1']
-            path_y = [path_points[j][1] for j, c in enumerate(chromosome) if c == '1']
-            self.sc.axes.plot(path_x, path_y, '-')
+
+        # for i, chromosome in enumerate(population):
+        #     path_x = [path_points[j][0] for j, c in enumerate(chromosome) if c == '1']
+        #     path_y = [path_points[j][1] for j, c in enumerate(chromosome) if c == '1']
+        #     self.sc.axes.plot(path_x, path_y, '-')
+        
+        self.sc.axes.plot(self.path_x, self.path_y, '-')
+        self.sc.axes.plot(self.path_fast_x, self.path_fast_y, '-')
+        pass
         
         
         # self.sc.axes.text(1, int(parser['Plot Axes']['y_end'])+1, f"Generation: {gen}, Chromosome No. {i+1}\nPath Length:{path_lengths[i]}")
+
+    def start_planning_thread(self):
+        self.thread.start()
+
+class GeneticRunner(QThread):
+    # frame_updated = pyqtSignal(np.ndarray)
+    # on_finish = pyqtSignal(dict)
+
+    def __init__(self,map):
+        super().__init__()
+        
+        self.map = map
+        pass
+
+    def run(self):
+        print("GA START")
+        self.map.start_planning()
+        
+        print("GA EXIT")
+        pass
+

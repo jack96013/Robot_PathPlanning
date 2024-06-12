@@ -1,0 +1,22 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		}
+	],
+	
+	"settings": {
+		// 頭部註釋
+		"fileheader.customMade": {
+			// Author欄位是檔案的建立者 
+			"Author": "TZU-CHIEH, HSU", // 同時獲取使用者名稱與信箱
+			"Mail": "j.k96013@gmail.com",
+			"Department": "ECIE Lab, NTUT",
+			"Date": "Do not edit",
+			//"LastEditors": "git config user.name && git config user.email",
+			"LastEditTime": "Do not edit",
+			"Description": "",
+			//"custom_string_obkoro1_copyright": "Copyright (c) ${now_year} by TZU-CHIEH, HSU email: j.k96013@gmail.com, All Rights Reserved."
+		},
+	}
+}
