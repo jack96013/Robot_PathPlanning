@@ -3,7 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-05-30 22:20:00
-LastEditTime: 2024-06-12 23:21:27
+LastEditTime: 2024-06-13 23:05:50
 Description: 
 '''
 
@@ -15,9 +15,10 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.backends.backend_qt5agg import \
     NavigationToolbar2QT as NavigationToolbar
 from PyQt5 import QtCore, QtGui, QtWidgets
-from PyQt5.QtCore import QMutex, QThread, pyqtSignal, pyqtSlot, Qt
+from PyQt5.QtCore import QMutex, QTimer, pyqtSignal, pyqtSlot, Qt
 from PyQt5.QtGui import QPainter, QLinearGradient, QBrush, QColor
 from PyQt5.QtWidgets import QLabel
+
 
 
 from ui import main_ui
@@ -32,9 +33,6 @@ from matplotlib.backends.backend_qt5agg import \
     FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from ObjectDetector import ObjectDetector, color_default
-
-# from TCPClientHandler import TCPClientHandler
-from AmigoBot import AmigoBot
 
 
 color_filter_struct = {'Lower': np.array([0, 0, 0]), 'Upper': np.array([0, 0, 0])}
@@ -133,7 +131,9 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
         self.keep_update_map_enable = True
         
-        self.start_button.clicked.connect(self.on_button_start_click)
+    
+    
+        
         self.pushButton_simulate.clicked.connect(self.on_button_simulate_click)
         self.pushButton_generate.clicked.connect(self.on_button_generate_click)
         self.checkBox_update_map_enable.clicked.connect(self.on_checkBox_update_map_clock)
@@ -186,18 +186,33 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
         # Video Processing
         # self.cap = cv2.VideoCapture(2)
+        
+        # Object Detection
         self.cv_object_mutex = QMutex()
 
         self.object_detector = ObjectDetector(cv_obj_dict)
         self.object_detector.frame_updated.connect(self.update_image)
         self.object_detector.on_finish.connect(self.on_finish)
+        
+        self.object_detector_ui_init()
+        
+        
+        # Other
+        self.tab_robot_init()
+        
 
         self.current_image = None
 
-        self.tab_robot_init()
         
-        self.amigoBot = AmigoBot()
-
+        
+        
+    def object_detector_ui_init(self):
+        self.pushbutton_webcam_connect.clicked.connect(self.on_pushbutton_webcam_connect_click)
+        self.comboBox_webcam_list.currentIndexChanged.connect(self.on_comboBox_webcam_list_valueChanged)
+        
+        cam_list = self.object_detector.get_available_cameras()
+        for cam in cam_list:
+            self.comboBox_webcam_list.addItem(f'Cam {cam}')
         
     def tab_robot_init(self):
         self.pushButton_robot_connect.clicked.connect(self.on_button_robot_connect_click)
@@ -206,24 +221,78 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.pushButton_robot_left.clicked.connect(self.on_button_robot_left_click)
         self.pushButton_robot_right.clicked.connect(self.on_button_robot_right_click)
         self.pushButton_robot_stop.clicked.connect(self.on_button_robot_stop_click)
+        self.pushButton_robot_tracking.clicked.connect(self.on_button_robot_track_click)
+        self.pushButton_robot_tracking_stop.clicked.connect(self.on_button_robot_track_stop_click)
+        # self.horizontalSlider_robot_velocity_kp.valueChanged.connect(self.on_horizontalSlider_robot_velocity_kp_valueChanged)
+        # self.horizontalSlider_robot_angle_kp.valueChanged.connect(self.on_horizontalSlider_robot_angle_kp_valueChanged)
+        self.spinBox_robot_velocity_kp.valueChanged.connect(self.on_spinBox_robot_velocity_kp_valChanged)
+        self.spinBox_robot_angle_kp.valueChanged.connect(self.on_spinBox_robot_angle_kp_valChanged)
+        
+        self.spinBox_robot_velocity_kp.setValue(self.map.robot.velocity_kp)
+        self.spinBox_robot_angle_kp.setValue(self.map.robot.angle_kp)
+        
+        self.robot_info_timer = QTimer(self)
+        self.robot_info_timer.timeout.connect(self.on_robot_info_timer_update)
+        self.robot_info_timer.start(500)
+        
+    def on_robot_info_timer_update(self):
+        self.label_robot_info1.setText(f'{self.map.robot.velocity_l:.2f}')
+        self.label_robot_info2.setText(f'{self.map.robot.velocity_r:.2f}')
+        self.label_robot_info3.setText(f'{self.map.robot.error_x:.2f}')
+        self.label_robot_info4.setText(f'{self.map.robot.error_y:.2f}')
+        if self.map.robot.getLocation()[0] is not None:
+            self.label_robot_info5.setText(f'{self.map.robot.getLocation()[0]:.2f}, {self.map.robot.getLocation()[1]:.2f}')
+        self.label_robot_info6.setText(f'{self.map.robot.target[0]:.2f}, {self.map.robot.target[1]:.2f}')
+        self.label_robot_info7.setText(f'{self.map.robot.distance_target:.2f}')
+        self.label_robot_info8.setText(f'{self.map.robot.omega:.2f}')
+        self.label_robot_info9.setText(f'{self.map.robot.theta_target * (180/math.pi):.2f}')
+        self.label_robot_info10.setText(f'{self.map.robot.getAngles() * (180/math.pi):.2f}')
+        
+    def on_button_robot_track_stop_click(self):
+        self.map.robot.stop_position_control()
+        
+    def on_spinBox_robot_velocity_kp_valChanged(self):
+        # self.horizontalSlider_robot_velocity_kp.setValue(self.sender().value())
+        value = self.sender().value()
+        self.map.robot.velocity_kp = value
+        pass
     
+    def on_spinBox_robot_angle_kp_valChanged(self):
+        # self.horizontalSlider_robot_angle_kp.setValue(self.sender().value())
+        value = self.sender().value()
+        self.map.robot.angle_kp = value
+        pass
+
+    def on_horizontalSlider_robot_velocity_kp_valueChanged(self):
+        value = self.sender().value()
+        self.map.robot.velocity_kp = value
+        self.spinBox_robot_velocity_kp.setValue(value)
+        
+    def on_horizontalSlider_robot_angle_kp_valueChanged(self):
+        value = self.sender().value()
+        self.map.robot.angle_kp = value
+        self.spinBox_robot_angle_kp.setValue(value)
+    
+    def on_button_robot_track_click(self):
+        self.map.robot.start_position_control()
+        
     def on_button_robot_connect_click(self):
-        self.amigoBot.connectToRelay()
+        self.map.robot.robot_instance.connectToRelay()
     
     def on_button_robot_forward_click(self):
-        self.amigoBot.move_forward()
+        self.map.robot.robot_instance.move_forward()
     
     def on_button_robot_backward_click(self):
-        self.amigoBot.move_backward()
+        self.map.robot.robot_instance.move_backward()
         
     def on_button_robot_left_click(self):
-        self.amigoBot.turn_left()
+        self.map.robot.robot_instance.turn_left()
         
     def on_button_robot_right_click(self):
-        self.amigoBot.turn_right()
+        self.map.robot.robot_instance.turn_right()
         
     def on_button_robot_stop_click(self):
-        self.amigoBot.stop()    
+        self.map.robot.robot_instance.stop()    
 
     def on_checkBox_update_map_clock(self):
         self.keep_update_map_enable = self.sender().isChecked()
@@ -261,8 +330,8 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.comboBox_color_choose.currentIndexChanged.connect(self.on_color_adjust)
         self.label_color_previewNew = GradientLabel("#FF0000", "#0000FF")
         
-        self.horizontalLayout_color_preview.addWidget(self.label_color_previewNew)
-
+        self.verticallLayout_color_preview.addWidget(self.label_color_previewNew)
+    
 
     def on_color_adjust(self):
         #color_profile_name = str(self.sender().currentText())
@@ -397,8 +466,11 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         if slider_box is not None:
             slider_box.setValue(self.sender().value())
 
-    def on_button_start_click(self):
+    def on_pushbutton_webcam_connect_click(self):
         self.object_detector.start()
+        
+    def on_comboBox_webcam_list_valueChanged(self):
+        self.object_detector.set_camera(self.sender().currentIndex())
 
     @pyqtSlot(np.ndarray)
     def update_image(self, frame):
@@ -431,7 +503,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.label_info_fps.setText(f'{info["fps"]:.2f}')
         
         if self.keep_update_map_enable:
-            # self.map.update()
+            self.map.update()
             self.map.plot_map()
         
         pass

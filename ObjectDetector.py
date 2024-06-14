@@ -3,15 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-06-06 09:11:18
-LastEditTime: 2024-06-12 23:12:50
-Description: 
-'''
-'''
-Author: TZU-CHIEH, HSU
-Mail: j.k96013@gmail.com
-Department: ECIE Lab, NTUT
-Date: 2024-06-04 09:03:40
-LastEditTime: 2024-06-06 11:46:29
+LastEditTime: 2024-06-13 23:02:43
 Description: 
 '''
 
@@ -20,13 +12,19 @@ from PyQt5.QtGui import QImage, QPixmap
 import time
 import numpy as np
 import cv2
+
 # import debugpy
 
 
-color_default = {'red':  {'Lower': np.array([0, 60, 60]), 'Upper': np.array([6, 255, 255])},
+color_default = {'red':  {'Lower': np.array([0, 60, 98]), 'Upper': np.array([6, 255, 255])},
               'blue': {'Lower': np.array([100, 80, 46]), 'Upper': np.array([124, 255, 255])},
-              'green': {'Lower': np.array([35, 43, 35]), 'Upper': np.array([90, 255, 255])},
+              'green': {'Lower': np.array([35, 43, 119]), 'Upper': np.array([90, 255, 255])},
               'custom':None}
+
+# color_default = {'red':  {'Lower': np.array([0, 60, 60]), 'Upper': np.array([6, 255, 255])},
+#               'blue': {'Lower': np.array([100, 80, 46]), 'Upper': np.array([124, 255, 255])},
+#               'green': {'Lower': np.array([35, 43, 35]), 'Upper': np.array([90, 255, 255])},
+#               'custom':None}
 
 
 # color_default = {'red': {'Lower': np.array([0, 169, 33]), 'Upper': np.array([138, 255, 186])},
@@ -48,26 +46,46 @@ class ObjectDetector(QObject):
         self.prev_time = time.time()
         
 
-        self.cap = cv2.VideoCapture(2)
+        self.cap = None
+        
         self.cv_object_mutex = QMutex()
         self.processor = VideoProcessor(self.cap,cv_obj_dict,self.cv_object_mutex)
         self.processor.frame_updated.connect(self.frame_updated)
         self.processor.on_finish.connect(self.on_finish)
+        
+        self.camera_idx = 0
+        self.camera_list = []
 
 
     def start(self):
         # AXIS P5512
         # http://root:root@192.168.10.163/mjpg/video.mjpg
-        self.cap = cv2.VideoCapture(2)
+        # rtsp://root:root@192.168.10.163/axis-media/media.amp
+        self.cap = cv2.VideoCapture(self.camera_list[self.camera_idx])
+        # self.cap = cv2.VideoCapture("rtsp://root:root@192.168.10.163/axis-media/media.amp")
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+        
+        self.processor.set_cap(self.cap)
+        # self.cap.set(cv2.CV_CAP_PROP_BUFFERSIZE, 3) 
 
         self.processor.start()
         
     def stop(self):
         self.processor.stop()
-
-
+    
+    def get_available_cameras(self, max_cameras=10):
+        self.camera_list = []
+        for i in range(max_cameras):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                self.camera_list.append(i)
+                cap.release()
+        return self.camera_list
+    
+    def set_camera(self, idx):
+        self.camera_idx = idx
+        
 
 class VideoProcessor(QThread):
     frame_updated = pyqtSignal(np.ndarray)
@@ -86,7 +104,9 @@ class VideoProcessor(QThread):
         self.cv_object_mutex = cv_object_mutex
 
         self.current_image = None
-
+    
+    def set_cap(self,cap):
+        self.cap = cap
     def run(self):
         # debugpy.debug_this_thread()
         print("Thread Start")

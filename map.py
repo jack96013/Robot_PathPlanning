@@ -60,12 +60,12 @@ class Map():
             self.obstacle_list.append(np.intp(box))
 
 
-        if len(self.path_point_list) == 0:
-            self._init_path_points()
-            print(f'Path Points = {len(self.path_point_list)}')
-        else:
-            self.path_point_list[0] = (int(self.robot.getLocation()[0]),int(self.robot.getLocation()[1]))
-            self.path_point_list[-1] = self.end_point.getLocation()
+        # if len(self.path_point_list) == 0:
+        #     self._init_path_points()
+        #     print(f'Path Points = {len(self.path_point_list)}')
+        # else:
+        #     self.path_point_list[0] = (int(self.robot.getLocation()[0]),int(self.robot.getLocation()[1]))
+        #     self.path_point_list[-1] = self.end_point.getLocation()
         
         
             
@@ -89,6 +89,8 @@ class Map():
         self.sc.axes.cla()
         self.sc.axes.invert_yaxis()
         self.sc.axes.xaxis.set_ticks_position('top')
+        self.sc.axes.set_xlim(0, 1920)
+        self.sc.axes.set_ylim(0, 1080)
 
 
         obstacles = self.cv_obj_dict["obstacles"]["Objects"]

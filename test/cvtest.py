@@ -36,4 +36,8 @@ def list_ports():
     return available_ports,working_ports,non_working_ports
 
 
-list_ports()
+(a,b,c) = list_ports()
+print(a)
+print(b)
+print(c)
+

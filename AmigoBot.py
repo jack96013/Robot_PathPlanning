@@ -3,15 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-06-12 18:07:44
-LastEditTime: 2024-06-12 20:05:47
-Description: 
-'''
-'''
-Author: TZU-CHIEH, HSU
-Mail: j.k96013@gmail.com
-Department: ECIE Lab, NTUT
-Date: 2024-06-12 18:07:44
-LastEditTime: 2024-06-12 18:16:57
+LastEditTime: 2024-06-13 10:16:54
 Description: 
 '''
 
@@ -28,8 +20,8 @@ class AmigoBot:
         self.client_port = 27015
         self.client = TCPClientHandler(self.client_host, self.client_port)
         # self.client.received_data.connect(self.update_text_edit)
-        self.speed_L = 500
-        self.speed_R = 500
+        self.speed_L = 100
+        self.speed_R = 100
         
         
     def connectToRelay(self, host = None, port = None):

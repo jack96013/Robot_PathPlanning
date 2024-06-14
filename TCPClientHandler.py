@@ -3,9 +3,10 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-06-09 21:37:40
-LastEditTime: 2024-06-09 21:37:55
+LastEditTime: 2024-06-13 22:02:13
 Description: 
 '''
+
 import sys
 import socket
 from PyQt5.QtCore import QThread, pyqtSignal
@@ -27,14 +28,11 @@ class TCPClientHandler(QThread):
             self.sock.connect((self.host, self.port))
             print(f"Connected to {self.host}:{self.port}")
             
-            test_text = "right\n"
-            self.send_data(test_text)
-        
             while self.running:
                 data = self.sock.recv(1024)
                 if not data:
                     break
-                print(data.decode('utf-8'))
+                # print(data.decode('utf-8'))
         except Exception as e:
             print(f"Error: {e}")
         finally:
