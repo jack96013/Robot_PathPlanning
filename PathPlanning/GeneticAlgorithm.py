@@ -3,15 +3,14 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-06-04 16:35:35
-LastEditTime: 2024-06-04 16:50:04
+LastEditTime: 2024-06-14 15:26:20
 Description: 
 '''
 import math
 from random import randint
 
 from shapely.geometry import Polygon, LineString
-from config.config_parser import parser
-
+from PathPlanning.config.config_parser import parser
 
 
 class GeneticAlgorithm():
@@ -94,7 +93,7 @@ class GeneticAlgorithm():
 
     def _choose_random_parent(self, fitness_list):
         # TODO configuration load
-        till_index = len(self,fitness_list) * float(parser['Genetic Algorithm']['top_percentage'])
+        till_index = len(fitness_list) * float(parser['Genetic Algorithm']['top_percentage'])
         till_index = math.floor(till_index)
 
         parent_to_fitness = fitness_list[randint(0, till_index)]

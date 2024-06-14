@@ -1,4 +1,13 @@
-from config.config_parser import parser
+'''
+Author: TZU-CHIEH, HSU
+Mail: j.k96013@gmail.com
+Department: ECIE Lab, NTUT
+Date: 2024-06-06 09:11:19
+LastEditTime: 2024-06-14 15:43:11
+Description: 
+'''
+
+from PathPlanning.config.config_parser import parser
 from random import randint
 from shapely.geometry import Point
 from shapely.geometry.polygon import Polygon

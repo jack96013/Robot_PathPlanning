@@ -86,6 +86,9 @@ class ObjectDetector(QObject):
     def set_camera(self, idx):
         self.camera_idx = idx
         
+    def is_runnng(self):
+        return self.processor.isRunning()
+        
 
 class VideoProcessor(QThread):
     frame_updated = pyqtSignal(np.ndarray)
@@ -104,13 +107,23 @@ class VideoProcessor(QThread):
         self.cv_object_mutex = cv_object_mutex
 
         self.current_image = None
-    
+        
+        self.run_flag = False 
+
     def set_cap(self,cap):
         self.cap = cap
+        
+    def is_running(self):
+        return self.run_flag
+    
     def run(self):
         # debugpy.debug_this_thread()
+        self.run_flag = True
         print("Thread Start")
         while True:
+            if self.run_flag == False:
+                return
+            
             ret, frame_bgr = self.cap.read()
             if not ret:
                 return
@@ -128,7 +141,6 @@ class VideoProcessor(QThread):
                 self.detect_objects(frame_bgr, erode_hsv, cv_obj)
             self.cv_object_mutex.unlock()
 
-
             # Calculate FPS
             current_time = time.time()
             fps = 1 / (current_time - self.prev_time)
@@ -137,8 +149,6 @@ class VideoProcessor(QThread):
             # Display FPS on frame
             cv2.putText(frame_bgr, f'FPS: {fps:.2f}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
             # self.label_info_fps.setText(f'{fps:.2f}')
-
-            
 
             self.iter = self.iter + 1
             self.iterList.append(int(self.iter))
@@ -162,7 +172,6 @@ class VideoProcessor(QThread):
     def stop(self):
         self._run_flag = False
         self.wait()
-
 
     def detect_objects(self, frame_bgr, image_hsv, cv_object):
         if cv_object["Enable"] == False :

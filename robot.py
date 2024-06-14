@@ -76,8 +76,6 @@ class Robot():
         # if angle_deg < 0:
         #     angle_deg += 360
         
-        
-        
         return angle_rad
 
     def getLocation(self):

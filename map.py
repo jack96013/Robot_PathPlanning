@@ -6,19 +6,14 @@ from robot import Robot
 from endPoint import EndPoint
 import math
 
-from utils.path_point_generator import generate_path_points
-
-from genetic_algorithm import start, path_overlaps_obstacle
-import genetic_algorithm as ga
+from PathPlanning.path_point_generator import generate_path_points
 
 from PyQt5 import QtTest
-
 from PyQt5.QtCore import QThread
 
-import time
+from PathPlanning.GeneticAlgorithm import GeneticAlgorithm
 
-import cProfile
-
+from random import randint
 
 class Map():
     def __init__(self,cv_obj_dict,fig):
@@ -36,7 +31,6 @@ class Map():
         
         
         # self.fig, self.ax1 = plt.subplots()
-
         self.thread = GeneticRunner(self)
 
         self.path_x = list()
@@ -44,9 +38,11 @@ class Map():
         self.path_fast_x = list()
         self.path_fast_y = list()
         self.test = 0
+        
+        self.path_planning = GeneticAlgorithm()
 
     
-
+    # Update map onjects
     def update(self):
         if (len(self.cv_obj_dict["robot"]["Objects"])!= 0):
             loc = self.robot.setLocation(self.cv_obj_dict["robot"]["Objects"])
@@ -59,18 +55,19 @@ class Map():
             box = cv2.boxPoints(rect)
             self.obstacle_list.append(np.intp(box))
 
-
+    def generate_path_points(self):
+        if self.robot.getLocation()[0] != None:
+            self._init_path_points()
+            self.path_point_list[0] = (int(self.robot.getLocation()[0]),int(self.robot.getLocation()[1]))
+            self.path_point_list[-1] = self.end_point.getLocation()
+        
+    
         # if len(self.path_point_list) == 0:
         #     self._init_path_points()
         #     print(f'Path Points = {len(self.path_point_list)}')
         # else:
-        #     self.path_point_list[0] = (int(self.robot.getLocation()[0]),int(self.robot.getLocation()[1]))
-        #     self.path_point_list[-1] = self.end_point.getLocation()
-        
-        
-            
-        
-
+        #     
+    
     def _plot_obstacles(self,obstacles):
     
         for obstacle in obstacles:
@@ -171,17 +168,18 @@ class Map():
                 if path_point_end not in self.path_validity:
                     self.path_validity[path_point_end] = [True] * len(self.path_point_list)
 
-                if path_overlaps_obstacle(path_point_start, path_point_end, self.obstacle_list):
+                if self.path_planning.path_overlaps_obstacle(path_point_start, path_point_end, self.obstacle_list):
                     self.path_validity[path_point_start][j] = False
                     self.path_validity[path_point_end][i] = False
         
+    # 開始路徑規劃
     def start_planning(self):
         
-        population = ga._generate_population(self.path_point_list, self.obstacle_list, self.path_validity)    # 生成所有傳播路徑 (100000001000100010100001001) One-Hot 解碼
+        population = self.path_planning._generate_population(self.path_point_list, self.obstacle_list, self.path_validity)    # 生成所有傳播路徑 (100000001000100010100001001) One-Hot 解碼
         path_lengths = []
 
         for chromosome in population:   
-            path_lengths.append(ga._calculate_path_length(chromosome, self.path_point_list))    # 計算所有長度
+            path_lengths.append(self.path_planning._calculate_path_length(chromosome, self.path_point_list))    # 計算所有長度
 
         # plot(self.obstacle_list, self.path_points, population, path_lengths, 1, False)
 
@@ -195,25 +193,25 @@ class Map():
             self.new_population = []
             path_lengths.clear()
 
-            fitness_list = ga._sort_by_fitness(population, self.path_point_list)
+            fitness_list = self.path_planning._sort_by_fitness(population, self.path_point_list)
             
             for i, chromosome in enumerate(population):
                 # self.new_population.clear()    
                 while True:
-                    parent1 = ga._choose_random_parent(fitness_list)
-                    parent2 = ga._choose_random_parent(fitness_list)
+                    parent1 = self.path_planning._choose_random_parent(fitness_list)
+                    parent2 = self.path_planning._choose_random_parent(fitness_list)
 
-                    child = ga._crossover(parent1, parent2)
+                    child = self.path_planning._crossover(parent1, parent2)
 
-                    if ga.randint(1, 10) <= 10 * float(0.3):
-                        child = ga._mutation(child)
+                    if randint(1, 10) <= 10 * float(0.3):
+                        child = self.path_planning._mutation(child)
 
-                    if ga._chromosome_valid(child, self.obstacle_list, self.path_point_list):
+                    if self.path_planning._chromosome_valid(child, self.obstacle_list, self.path_point_list):
                         break
                     
                     QtTest.QTest.qWait(1)
 
-                path_length = ga._calculate_path_length(child, self.path_point_list)
+                path_length = self.path_planning._calculate_path_length(child, self.path_point_list)
                 # path_lengths.append(path_length)
                 self.new_population.append(child)
                 print(f'{i} new population {path_length}')
@@ -240,11 +238,6 @@ class Map():
             
             print(f'gen={gen}, path_lengths={0}')
 
-
-            
-            # self.plot_path(self.path_point_list, new_population, path_lengths, (gen+2), last_gen=True if gen == generations-2 else False )
-            # self.plot_path(self.path_point_list,self.new_population)
-        pass
         print("finish")
 
 

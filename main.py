@@ -3,7 +3,7 @@ Author: TZU-CHIEH, HSU
 Mail: j.k96013@gmail.com
 Department: ECIE Lab, NTUT
 Date: 2024-05-30 22:20:00
-LastEditTime: 2024-06-13 23:05:50
+LastEditTime: 2024-06-14 14:29:00
 Description: 
 '''
 
@@ -18,8 +18,6 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QMutex, QTimer, pyqtSignal, pyqtSlot, Qt
 from PyQt5.QtGui import QPainter, QLinearGradient, QBrush, QColor
 from PyQt5.QtWidgets import QLabel
-
-
 
 from ui import main_ui
 
@@ -126,13 +124,10 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
 
-        self.setWindowTitle("ARAA Final Project ")
+        self.setWindowTitle("ARAA Final Project")
         self.setGeometry(100, 100, 800, 600)
 
         self.keep_update_map_enable = True
-        
-    
-    
         
         self.pushButton_simulate.clicked.connect(self.on_button_simulate_click)
         self.pushButton_generate.clicked.connect(self.on_button_generate_click)
@@ -203,9 +198,6 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
 
         self.current_image = None
 
-        
-        
-        
     def object_detector_ui_init(self):
         self.pushbutton_webcam_connect.clicked.connect(self.on_pushbutton_webcam_connect_click)
         self.comboBox_webcam_list.currentIndexChanged.connect(self.on_comboBox_webcam_list_valueChanged)
@@ -302,7 +294,8 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         pass
 
     def on_button_generate_click(self):
-        self.map.update()
+        # self.map.update() 
+        self.map.generate_path_points()
     
     
     def obj_detection_checkbox_init(self):
@@ -418,7 +411,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.spinBox_rmax.valueChanged.connect(self.color_spin_box_changed)
         self.spinBox_gmax.valueChanged.connect(self.color_spin_box_changed)
         self.spinBox_bmax.valueChanged.connect(self.color_spin_box_changed)
-        
+    
     def color_slider_changed(self):
         name = self.sender().objectName().split("_")[1]
         spin_box = self.findChild(QtWidgets.QSpinBox, f"spinBox_{name}")
@@ -467,7 +460,11 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
             slider_box.setValue(self.sender().value())
 
     def on_pushbutton_webcam_connect_click(self):
-        self.object_detector.start()
+        if self.object_detector.is_runnng():
+            self.object_detector.stop()
+        else:
+            self.object_detector.start()
+            self.pushbutton_webcam_connect.setText("Disconnect")
         
     def on_comboBox_webcam_list_valueChanged(self):
         self.object_detector.set_camera(self.sender().currentIndex())
@@ -481,8 +478,7 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         pixmap = QtGui.QPixmap.fromImage(image)
         self.label.setPixmap(pixmap.scaled(
             self.label.size(), QtCore.Qt.KeepAspectRatio))
-
-
+        
         pass
         
 
@@ -491,16 +487,16 @@ class Main(QtWidgets.QMainWindow, main_ui.Ui_MainWindow):
         self.cv_object_mutex.lock()
         
 
-        self.label_info_obstacles_6.setText(f'{self.map.robot.getAngles():.1f}')
+        self.label_info_6.setText(f'{self.map.robot.getAngles():.1f}')
         
-        self.label_info_obstacles.setText(f'{len(cv_obj_dict["obstacles"]["Objects"])}')
-        self.label_info_robot_angles.setText(f'{len(cv_obj_dict["robot"]["Objects"])}')
-        self.label_info_obstacles_4.setText(f'{len(cv_obj_dict["start"]["Objects"])}')
-        self.label_info_obstacles_5.setText(f'{len(cv_obj_dict["end"]["Objects"])}')
+        self.label_info_2.setText(f'{len(cv_obj_dict["obstacles"]["Objects"])}')
+        self.label_info_3.setText(f'{len(cv_obj_dict["robot"]["Objects"])}')
+        self.label_info_4.setText(f'{len(cv_obj_dict["start"]["Objects"])}')
+        self.label_info_5.setText(f'{len(cv_obj_dict["end"]["Objects"])}')
         
         
         self.cv_object_mutex.unlock()
-        self.label_info_fps.setText(f'{info["fps"]:.2f}')
+        self.label_info_1.setText(f'{info["fps"]:.2f}')
         
         if self.keep_update_map_enable:
             self.map.update()
